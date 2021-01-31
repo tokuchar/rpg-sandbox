@@ -1,0 +1,10 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: item-service
+opentracing:
+  jaeger:
+    enabled: true
+    http-sender:
+      url: http://${JAEGER_HOST}:14268/api/traces

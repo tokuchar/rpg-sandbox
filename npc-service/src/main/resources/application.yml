@@ -1,0 +1,10 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: npc-service
+opentracing:
+  jaeger:
+    enabled: true
+    http-sender:
+      url: http://${JAEGER_HOST}:14268/api/traces

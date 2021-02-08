@@ -1,11 +1,7 @@
 package com.oncors.rpg.config;
 
-import com.oncors.rpg.TraceAspect;
 import io.jaegertracing.internal.samplers.ConstSampler;
-import io.opentracing.Scope;
-import io.opentracing.SpanContext;
 import io.opentracing.propagation.Format;
-import io.opentracing.propagation.TextMapExtractAdapter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -35,37 +31,15 @@ public class TraceConfig {
         return config.getTracer();
     }
 
-//    @Bean
-//    public RestTemplate restTemplate(RestTemplateBuilder restTemplateBuilder) {
-//        RestTemplate restTemplate = restTemplateBuilder
-//                .build();
-//        restTemplate.getInterceptors().add((request, body, execution) -> {
-//            log.info("HTTP {} request to {}", request.getMethod(), request.getURI());
-//            return execution.execute(request, body);
-//        });
-//
-//        return restTemplate;
-//    }
-
     @Bean
     public RestTemplate restTemplate(RestTemplateBuilder restTemplateBuilder, io.opentracing.Tracer tracer) {
         RestTemplate restTemplate = restTemplateBuilder
                 .build();
-
         restTemplate.getInterceptors().add((request, body, execution) -> {
-            HttpHeaders httpHeaders = request.getHeaders();
-            SpanContext parentContext = tracer.extract(Format.Builtin.HTTP_HEADERS, new TextMapExtractAdapter(httpHeaders.toSingleValueMap()));
-
-            String operationName = request.getMethod().toString();
-            try (Scope scope = tracer.buildSpan(operationName)
-                    .asChildOf(parentContext)
-                    .startActive(true)) {
-
-                tracer.inject(
-                        tracer.activeSpan().context(),
-                        Format.Builtin.HTTP_HEADERS,
-                        new RequestBuilderCarrier(httpHeaders));
-            }
+            tracer.inject(
+                    tracer.activeSpan().context(),
+                    Format.Builtin.HTTP_HEADERS,
+                    new RequestBuilderCarrier(request.getHeaders()));
 
             log.info("HTTP {} request to {}", request.getMethod(), request.getURI());
             return execution.execute(request, body);
@@ -74,7 +48,7 @@ public class TraceConfig {
         return restTemplate;
     }
 
-    public class RequestBuilderCarrier implements io.opentracing.propagation.TextMap {
+    public static class RequestBuilderCarrier implements io.opentracing.propagation.TextMap {
         private final HttpHeaders httpHeaders;
 
         RequestBuilderCarrier(HttpHeaders httpHeaders) {

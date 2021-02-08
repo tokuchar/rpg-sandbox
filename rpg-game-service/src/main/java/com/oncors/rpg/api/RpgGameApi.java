@@ -4,15 +4,13 @@ import com.oncors.rpg.Trace;
 import com.oncors.rpg.dto.npc.Troll;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
-
-import javax.servlet.http.HttpServletRequest;
 
 @Slf4j
 @RestController
@@ -21,18 +19,14 @@ import javax.servlet.http.HttpServletRequest;
 public class RpgGameApi {
     @Autowired
     RestTemplate restTemplate;
-    @Autowired
-    HttpServletRequest request;
 
     @Trace
     @PostMapping
-    public ResponseEntity<Void> play(@RequestHeader HttpHeaders httpHeaders) {
+    public ResponseEntity<Void> play() {
         log.info("play.. eh..");
-        restTemplate.exchange("http://localhost:8081/npc-s",
-                HttpMethod.GET,
-                new HttpEntity<>(httpHeaders),
-                Troll.class
-        );
+        restTemplate.getForEntity("http://localhost:8081/npc-s", Troll.class);
+        restTemplate.getForEntity("http://localhost:8080/items", Troll.class);
+
         return new ResponseEntity<>(HttpStatus.OK);
     }
 }

@@ -4,26 +4,32 @@ import io.opentracing.Scope;
 import io.opentracing.SpanContext;
 import io.opentracing.Tracer;
 import io.opentracing.propagation.Format;
-import io.opentracing.propagation.TextMapExtractAdapter;
+import io.opentracing.propagation.TextMapAdapter;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.AfterThrowing;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
-import java.util.Iterator;
-import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
+import java.util.HashMap;
 
 @Slf4j
 @Aspect
 @Component
 public class TraceAspect {
-    private Tracer tracer;
+    //TODO: wrzucać statusy http ;)
 
-    public TraceAspect(@Autowired Tracer tracer) {
+    public static final String UBER_TRACE_ID = "uber-trace-id";
+    private Tracer tracer;
+    private HttpServletRequest request;
+
+    public TraceAspect(@Autowired Tracer tracer, @Autowired HttpServletRequest request) {
         this.tracer = tracer;
+        this.request = request;
     }
 
     @Around("@annotation(com.oncors.rpg.Trace)")
@@ -35,45 +41,32 @@ public class TraceAspect {
     private Object handleTracing(ProceedingJoinPoint joinPoint) throws Throwable {
         final String operationName = joinPoint.getSignature().getName();
         SpanContext parentContext = null;
-        HttpHeaders httpHeaders = null;
         Object proceed;
 
-        for (Object object : joinPoint.getArgs()) {
-            if (object instanceof HttpHeaders) {
-                httpHeaders = (HttpHeaders) object;
-                parentContext = tracer.extract(Format.Builtin.HTTP_HEADERS, new TextMapExtractAdapter(httpHeaders.toSingleValueMap()));
-            }
+        String uberTraceId = request.getHeader(UBER_TRACE_ID);
+
+        if (uberTraceId != null) {
+            parentContext = tracer.extract(
+                    Format.Builtin.HTTP_HEADERS,
+                    new TextMapAdapter(new HashMap<>() {{
+                        put(UBER_TRACE_ID, uberTraceId);
+                    }})
+            );
         }
 
         try (Scope scope = tracer.buildSpan(operationName)
                 .asChildOf(parentContext)
                 .startActive(true)) {
-
-            tracer.inject(
-                    tracer.activeSpan().context(),
-                    Format.Builtin.HTTP_HEADERS,
-                    new RequestBuilderCarrier(httpHeaders));
-
             proceed = joinPoint.proceed();
+
+            tracer.activeSpan().setTag("http.status", ((ResponseEntity) proceed).getStatusCode().value());
         }
+
         return proceed;
     }
 
-    public class RequestBuilderCarrier implements io.opentracing.propagation.TextMap {
-        private final HttpHeaders httpHeaders;
-
-        RequestBuilderCarrier(HttpHeaders httpHeaders) {
-            this.httpHeaders = httpHeaders;
-        }
-
-        @Override
-        public Iterator<Map.Entry<String, String>> iterator() {
-            throw new UnsupportedOperationException("carrier is write-only");
-        }
-
-        @Override
-        public void put(String key, String value) {
-            httpHeaders.add(key, value);
-        }
+    @AfterThrowing(pointcut = "execution(* com.oncors.rpg..* (..))", throwing = "exception")
+    public void errorInterceptor(Exception exception) {
+        tracer.activeSpan().log(exception.getMessage());
     }
 }

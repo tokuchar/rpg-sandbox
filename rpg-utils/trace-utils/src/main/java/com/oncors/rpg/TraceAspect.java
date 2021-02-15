@@ -21,8 +21,6 @@ import java.util.HashMap;
 @Aspect
 @Component
 public class TraceAspect {
-    //TODO: wrzucać statusy http ;)
-
     public static final String UBER_TRACE_ID = "uber-trace-id";
     private Tracer tracer;
     private HttpServletRequest request;

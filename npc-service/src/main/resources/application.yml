@@ -3,6 +3,11 @@ server:
 spring:
   application:
     name: npc-service
+  redis:
+    url: redis://localhost:6379
+    host: localhost
+    port: 6379
+    client-name: npc-app
 opentracing:
   jaeger:
     enabled: true

@@ -1,6 +1,7 @@
 version: "3"
 services:
   jaeger:
+    container_name: jeagerek
     image: jaegertracing/all-in-one:1.17
     ports:
       - 5775:5775/udp
@@ -13,3 +14,8 @@ services:
       - 9411:9411
     environment:
       - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+  redis:
+    container_name: redisek
+    image: redis:latest #dostanie sie do CLI: docker exec -it redisek redis-cli
+    ports:
+      - 6379:6379
